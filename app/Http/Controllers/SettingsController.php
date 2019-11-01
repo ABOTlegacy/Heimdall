@@ -47,7 +47,7 @@ class SettingsController extends Controller
                 'setting' => $setting,
             ]);
         } else {
-            $route = route('settings.list', [], false);
+            $route = route('settings.list', []);
             return redirect($route) 
             ->with([
                 'error' => __('app.alert.error.not_exist'),
@@ -68,6 +68,8 @@ class SettingsController extends Controller
         if (!is_null($setting)) {
             $data = Setting::getInput();
 
+            $setting_value = null;
+
             if ($setting->type == 'image') {
 
 
@@ -83,13 +85,13 @@ class SettingsController extends Controller
             $user->settings()->detach($setting->id);
             $user->settings()->save($setting, ['uservalue' => $setting_value]);
             
-            $route = route('settings.index', [], false);
+            $route = route('settings.index', []);
             return redirect($route) 
             ->with([
                 'success' => __('app.alert.success.setting_updated'),
             ]);
         } else {
-            $route = route('settings.index', [], false);
+            $route = route('settings.index', []);
             return redirect($route) 
             ->with([
                 'error' => __('app.alert.error.not_exist'),
@@ -109,11 +111,17 @@ class SettingsController extends Controller
             $user->settings()->detach($setting->id);
             $user->settings()->save($setting, ['uservalue' => '']);
         }
-        $route = route('settings.index', [], false);
+        $route = route('settings.index', []);
         return redirect($route) 
         ->with([
             'success' => __('app.alert.success.setting_updated'),
         ]);
     
     }
+
+    public function search(Request $request)
+    {
+        
+    }
+
 }

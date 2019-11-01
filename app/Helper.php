@@ -34,3 +34,23 @@ function title_color($hex)
         return ' white';
     }
 }
+
+function getLinkTargetAttribute()
+{
+    $target = \App\Setting::fetch('window_target');
+
+    if($target === 'current') {
+        return '';
+    } else {
+        return ' target="' . $target . '"';
+    }
+}
+
+
+
+function className($name)
+{
+    $name = preg_replace('/\PL/u', '', $name);
+    return $name;
+}
+

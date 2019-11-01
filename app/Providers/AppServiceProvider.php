@@ -7,6 +7,8 @@ use Artisan;
 use Schema;
 use App\Setting;
 use App\User;
+use App\Application;
+use App\Jobs\ProcessApps;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,12 +19,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        
 
         if(!is_file(base_path('.env'))) {
-            touch(base_path('.env'));
-            Artisan::call('key:generate');
+            copy(base_path('.env.example'), base_path('.env'));
         }
+        $this->genKey();
         if(!is_file(database_path('app.sqlite'))) {
             // first time setup
             touch(database_path('app.sqlite'));
@@ -40,14 +41,26 @@ class AppServiceProvider extends ServiceProvider
                 if(version_compare($app_version, $db_version) == 1) { // app is higher than db, so need to run migrations etc
                     Artisan::call('migrate', array('--path' => 'database/migrations', '--force' => true, '--seed' => true));                   
                 }
+
             } else {
                 Artisan::call('migrate', array('--path' => 'database/migrations', '--force' => true, '--seed' => true)); 
             }
 
         }
-        if(!is_file(public_path('storage'))) {
+
+        if(!is_file(public_path('storage/.gitignore'))) {
             Artisan::call('storage:link');
             \Session::put('current_user', null);
+        }
+        
+        $applications = Application::all();
+        if($applications->count() <= 0) {
+            if (class_exists('ZipArchive')) {
+                ProcessApps::dispatch();
+            } else {
+                die("You are missing php-zip");
+            }
+            
         }
 
         // User specific settings need to go here as session isn't available at this point in the app
@@ -62,12 +75,17 @@ class AppServiceProvider extends ServiceProvider
                 if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
                     $credentials = ['username' => $_SERVER['PHP_AUTH_USER'], 'password' => $_SERVER['PHP_AUTH_PW']];
                     
-                    if (\Auth::attempt($credentials)) {
+                    if (\Auth::attempt($credentials, true)) {
                         // Authentication passed...
                         $user = \Auth::user();
                         //\Session::put('current_user', $user);
                         session(['current_user' => $user]);                
                     }
+                }
+                elseif(isset($_SERVER['REMOTE_USER']) && !empty($_SERVER['REMOTE_USER'])) {
+                    $user = User::where('username', $_SERVER['REMOTE_USER'])->first();
+                    \Auth::login($user, true);
+                    session(['current_user' => $user]);   
                 }
             }
 
@@ -91,6 +109,8 @@ class AppServiceProvider extends ServiceProvider
             
         });  
 
+        $this->app['view']->addNamespace('SupportedApps', app_path('SupportedApps'));
+
 
         if (env('FORCE_HTTPS') === true) {
             \URL::forceScheme('https');
@@ -101,6 +121,21 @@ class AppServiceProvider extends ServiceProvider
         }
 
     }
+
+     /**
+     * Generate app key if missing and .env exists
+     *
+     * @return void
+     */
+    public function genKey()
+    {
+        if(is_file(base_path('.env'))) {
+            if(empty(env('APP_KEY'))) {
+                Artisan::call('key:generate', array('--force' => true, '--no-interaction' => true));
+            }
+        }
+    }
+
 
     /**
      * Register any application services.

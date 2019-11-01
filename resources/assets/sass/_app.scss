@@ -374,6 +374,8 @@ body {
     max-width: 1000px;
 	width: 100%;
 	margin: 10px 40px;
+	border-radius: 5px;
+    overflow: hidden;
 	header, footer {
 	    display: flex;
 	    justify-content: space-between;
@@ -432,6 +434,8 @@ body {
 				padding: 20px 25px;
 				font-size: 13px;
 				color: $app-text;
+				max-width: 500px;
+				word-break: break-word;
 				&.form-error {
 					background: #e69191;
 					color: white;
@@ -447,10 +451,27 @@ body {
 .homesearch {
 	height: 51px;
 }
+
+.toggleinput {
+	display: flex;
+	flex-direction: column-reverse;
+	line-height: 1;
+	font-size: 9px;
+	font-weight: 400;
+	text-transform: uppercase;
+	color: #ababab;
+	padding: 0 20px;  
+	label.name {
+		margin-top: 6px;
+	}
+}
+
+
 .module-actions {
     display: flex;
     justify-content:space-between;
-    align-items: center;
+	align-items: center;
+	
 
     .button {
         font-size: 18px;
@@ -672,7 +693,7 @@ div.create {
 	  border-bottom: 1px solid rgba(255,255,255,0.35);
 	  position: relative;
 	  width: 100%;
-	  max-width: 500px;
+	  max-width: 620px;
 	  form { 
 		width: 100%;
 	  }
@@ -682,6 +703,8 @@ div.create {
 		box-shadow: 0px 0px 5px 0 rgba(0,0,0,0.4);
 		overflow: hidden;	
 		position: relative;	  
+		display: flex;
+		
 	  }
 	  input {
 		  padding: 17px 15px;
@@ -704,6 +727,12 @@ div.create {
 		  color: white;
 		  text-transform: uppercase;
 		  background: $app-red;
+	  }
+	  select {
+		padding: 0 10px;
+		background: #f5f5f5;
+		border: none;
+		border-right: 1px solid #ddd;
 	  }
   }
 
@@ -755,16 +784,17 @@ div.create {
 
 #appimage {
 	img {
-		max-width: 150px;
+		max-width: 95px;
 	}
 }
 
-#sapconfig {
+#sapconfig, .newblock {
 	display: none;
 	width: 100%;
 	h2 {
 		background: #f2f3f6;
-		padding: 18px 25px;
+		padding: 2px 25px;
+		height: 60px;
 		margin-left: -15px;
 		width: calc(100% + 30px);
 		/* margin-right: -30px; */
@@ -773,6 +803,9 @@ div.create {
 		font-size: 18px;
 		color: #5b5b5b;
 		font-weight: 500;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
 	.items {
 		display: flex;
@@ -836,18 +869,13 @@ hr {
 
 .livestats-container {
 	.livestats {
-		margin: 5px 0px -5px;
+		margin: 5px 0px 0px;
 		padding: 0;
 		display: flex;
 		list-style: none;
 		justify-content: space-between;
 		width: 100%;
 
-		li {
-			text-align: center;
-			margin: 0;
-			line-height: 1;
-		}
 		span {
 			display: block;
 			text-transform: uppercase;
@@ -855,12 +883,44 @@ hr {
 			font-weight: 500;
 			opacity: 0.5;
 			line-height: 1;
+			display: flex;
+			text-align: left;
 		}
 		strong {
 			display: block;
 			line-height: 1;
+			display: flex;
+			align-items: center;
+			color: white;
+			font-size: 12px;
+			line-height: 1.2;
+			span {
+				margin-left: 4px;
+			}
+		}
+		li {
+			text-align: center;
+			margin: 0;
+			line-height: 1;
+			&.right {
+				text-align: right;
+				span {
+					justify-content: flex-end;
+				}
+			}
 		}
 
+		&.flexcolumn {
+			flex-direction: column;
+		}
+
+	}
+	&.black {
+		.livestats {
+			strong {
+				color: #000;
+			}
+		}
 	}
 }
 

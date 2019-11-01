@@ -1,3 +1,4 @@
+/app/SupportedApps
 /node_modules
 /public/hot
 /public/storage
@@ -25,3 +26,4 @@ yarn-error.log
 .Trashes
 .VolumeIcon.icns
 storage/app/public/avatars/*
+.env

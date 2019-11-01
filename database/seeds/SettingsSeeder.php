@@ -90,6 +90,7 @@ class SettingsSeeder extends Seeder
             'none' => 'app.options.none',
             'google' => 'app.options.google',
             'ddg' => 'app.options.ddg',
+            'qwant' => 'app.options.qwant',
             'bing' => 'app.options.bing',
             'startpage' => 'app.options.startpage',
         ]);
@@ -191,6 +192,23 @@ class SettingsSeeder extends Seeder
             $setting->value = '<a rel="noopener" target="_blank" href="https://www.paypal.me/heimdall">Paypal</a>';
             $setting->system = true;
             $setting->save();
+        }
+
+        if(!$home_tag = \App\Item::find(0)) {
+            $home_tag = new \App\Item;
+            $home_tag->id = 0;
+            $home_tag->title = 'app.dashboard';
+            $home_tag->pinned = 0;
+            $home_tag->url = '';
+            $home_tag->type = 1;
+            $home_tag->user_id = 0;
+            $home_tag->save();
+
+            $homeapps = \App\Item::withoutGlobalScope('user_id')->doesntHave('parents')->get();
+            foreach($homeapps as $app) {
+                if($app->id === 0) continue;
+                $app->parents()->attach(0);
+            }
         }
 
     }

@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use Artisan;
+use App\Application;
 use App\Item;
 use App\Setting;
 use App\User;
-use App\SupportedApps\Nzbget;
+use GrahamCampbell\GitHub\Facades\GitHub;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\SupportedApps;
+use App\Jobs\ProcessApps;
+use App\Search;
+use Illuminate\Support\Facades\Route;
 
 class ItemController extends Controller
 {
@@ -22,8 +28,16 @@ class ItemController extends Controller
      */
     public function dash()
     {
-        $data['apps'] = Item::doesntHave('parents')->pinned()->orderBy('order', 'asc')->get();
-        $data['all_apps'] = Item::doesntHave('parents')->get();
+        $data['apps'] = Item::whereHas('parents', function ($query) {
+            $query->where('id', 0);
+        })->orWhere('type', 1)->pinned()->orderBy('order', 'asc')->get();
+
+        $data['all_apps'] = Item::whereHas('parents', function ($query) {
+            $query->where('id', 0);
+        })->orWhere('type', 1)->orderBy('order', 'asc')->get();
+
+        //$data['all_apps'] = Item::doesntHave('parents')->get();
+        //die(print_r($data['apps']));
         return view('welcome', $data);
     }
 
@@ -41,9 +55,8 @@ class ItemController extends Controller
             $item->save();
         }
     }
-    
 
-     /**
+    /**
      * Pin item on the dashboard.
      *
      * @return \Illuminate\Http\Response
@@ -53,7 +66,7 @@ class ItemController extends Controller
         $item = Item::findOrFail($id);
         $item->pinned = true;
         $item->save();
-        $route = route('dash', [], false);
+        $route = route('dash', []);
         return redirect($route);
     }
 
@@ -67,7 +80,7 @@ class ItemController extends Controller
         $item = Item::findOrFail($id);
         $item->pinned = false;
         $item->save();
-        $route = route('dash', [], false);
+        $route = route('dash', []);
         return redirect($route);
     }
 
@@ -76,20 +89,25 @@ class ItemController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function pinToggle($id, $ajax=false)
+    public function pinToggle($id, $ajax=false, $tag=false)
     {
         $item = Item::findOrFail($id);
         $new = ((bool)$item->pinned === true) ? false : true;
         $item->pinned = $new;
         $item->save();
         if($ajax) {
-            $data['apps'] = Item::pinned()->get();
+            if(is_numeric($tag) && $tag > 0) {
+                $item = Item::whereId($tag)->first();
+                $data['apps'] = $item->children()->pinned()->orderBy('order', 'asc')->get();
+            } else {
+                $data['apps'] = Item::pinned()->orderBy('order', 'asc')->get();
+            }
             $data['ajax'] = true;
             return view('sortable', $data);
         } else {
-            $route = route('dash', [], false);
+            $route = route('dash', []);
             return redirect($route);
-            }
+        }
     }
 
    
@@ -121,7 +139,8 @@ class ItemController extends Controller
     {
         //
         $data['tags'] = Item::ofType('tag')->orderBy('title', 'asc')->pluck('title', 'id');
-        $data['current_tags'] = [];
+        $data['tags']->prepend(__('app.dashboard'), 0);
+        $data['current_tags'] = collect([0 => __('app.dashboard')]);
         return view('items.create', $data);
 
     }
@@ -137,7 +156,7 @@ class ItemController extends Controller
         //
         $validatedData = $request->validate([
             'title' => 'required|max:255',
-            'url' => 'required|url',
+            'url' => 'required',
         ]);
 
         if($request->hasFile('file')) {
@@ -154,14 +173,22 @@ class ItemController extends Controller
             'user_id' => $current_user->id
         ]);
 
+        if($request->input('class') === 'null') {
+            $request->merge([
+                'class' => null,
+            ]);
+        }
+
 
         //die(print_r($request->input('config')));
         
         $item = Item::create($request->all());
 
+        //Search::storeSearchProvider($request->input('class'), $item);
+
         $item->parents()->sync($request->tags);
 
-        $route = route('dash', [], false);
+        $route = route('dash', []);
         return redirect($route)
             ->with('success', __('app.alert.success.item_created'));
     }
@@ -188,8 +215,10 @@ class ItemController extends Controller
         // Get the item
         $data['item'] = Item::find($id);
         $data['tags'] = Item::ofType('tag')->orderBy('title', 'asc')->pluck('title', 'id');
-        $data['current_tags'] = $data['item']->parents;
-
+        $data['tags']->prepend(__('app.dashboard'), 0);
+        $data['current_tags'] = $data['item']->tags();
+        //$data['current_tags'] = $data['item']->parent;
+        //die(print_r($data['current_tags']));
         // show the edit form and pass the nerd
         return view('items.edit', $data);    
     }
@@ -205,7 +234,7 @@ class ItemController extends Controller
     {
         $validatedData = $request->validate([
             'title' => 'required|max:255',
-            'url' => 'required|url',
+            'url' => 'required',
         ]);
             //die(print_r($request->all()));
         if($request->hasFile('file')) {
@@ -222,12 +251,21 @@ class ItemController extends Controller
             'user_id' => $current_user->id
         ]);
 
+        if($request->input('class') === 'null') {
+            $request->merge([
+                'class' => null,
+            ]);
+        }
+
+
         $item = Item::find($id);
         $item->update($request->all());
 
+        //Search::storeSearchProvider($request->input('class'), $item);
+
         $item->parents()->sync($request->tags);
 
-        $route = route('dash', [], false);
+        $route = route('dash', []);
         return redirect($route)
             ->with('success',__('app.alert.success.item_updated'));
     }
@@ -250,7 +288,7 @@ class ItemController extends Controller
             Item::find($id)->delete();
         }
 
-        $route = route('items.index', [], false);
+        $route = route('items.index', []);
         return redirect($route)       
             ->with('success',__('app.alert.success.item_deleted'));
     }
@@ -268,19 +306,9 @@ class ItemController extends Controller
                 ->where('id', $id)
                 ->restore();      
         
-        $route = route('items.inded', [], false);
+        $route = route('items.index', []);
         return redirect($route)
             ->with('success',__('app.alert.success.item_restored'));
-    }
-
-    public function isSupportedAppByKey($app)
-    {
-        $output = false;
-        $all_supported = Item::supportedList();
-        if(array_key_exists($app, $all_supported)) {
-            $output = new $all_supported[$app];
-        }
-        return $output;
     }
 
     /**
@@ -291,19 +319,25 @@ class ItemController extends Controller
     public function appload(Request $request)
     {
         $output = [];
-        $app = $request->input('app');
+        $appname = $request->input('app');
+        //die($appname);
 
-        if(($app_details = $this->isSupportedAppByKey($app)) !== false) {
-            // basic details
-            $output['icon'] = $app_details->icon();
-            $output['colour'] = $app_details->defaultColour();
+        $app_details = Application::where('name', $appname)->firstOrFail();
+        $appclass = $app_details->class();
+        $app = new $appclass;
 
-            // live details
-            if($app_details instanceof \App\SupportedApps\Contracts\Livestats) {
-                $output['config'] = $app_details->configDetails();
-            } else {
-                $output['config'] = null;
-            }
+        // basic details
+        $output['icon'] = $app_details->icon();
+        $output['name'] = $app_details->name;
+        $output['iconview'] = $app_details->iconView();
+        $output['colour'] = $app_details->defaultColour();
+        $output['class'] = $appclass;
+
+        // live details
+        if($app instanceof \App\EnhancedApps) {
+            $output['config'] = className($app_details->name).'.config';
+        } else {
+            $output['config'] = null;
         }
         
         return json_encode($output);
@@ -318,25 +352,34 @@ class ItemController extends Controller
 
         $app_details = new $app();
         $app_details->config = (object)$data;
-        $app_details->testConfig();
+        $app_details->test();
     }
 
     public function getStats($id)
     {
         $item = Item::find($id);
 
-        $config = json_decode($item->description);
-        if(isset($config->type)) {
-            $config->url = $item->url;
-            if(isset($config->override_url) && !empty($config->override_url)) {
-                $config->url = $config->override_url;
-            }
-            $app_details = new $config->type;
-            $app_details->config = $config;
-            echo $app_details->executeConfig();
+        $config = $item->getconfig();
+        if(isset($item->class)) {
+            $application = new $item->class;
+            $application->config = $config;
+            echo $application->livestats();
         }
         
     }
+
+
+    public function checkAppList()
+    {
+        ProcessApps::dispatch();
+        $route = route('items.index');
+        return redirect($route)
+            ->with('success', __('app.alert.success.updating'));
+
+    }
+
+    
+    
 
     
 }
